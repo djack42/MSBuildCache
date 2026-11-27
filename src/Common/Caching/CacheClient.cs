@@ -193,9 +193,13 @@ public abstract class CacheClient : ICacheClient
         _hasher.Dispose();
 
         // The logger does not properly dispose of its ILog instances, so we have to get them and dipose them ourselves.
-        foreach (ILog log in ((Logger)RootContext.Logger).GetLog<ILog>())
+        // There are none when the log level is None.
+        if (RootContext.Logger is Logger logger)
         {
-            log.Dispose();
+            foreach (ILog log in logger.GetLog<ILog>())
+            {
+                log.Dispose();
+            }
         }
 
         RootContext.Logger.Dispose();

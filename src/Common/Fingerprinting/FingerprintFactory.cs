@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft. All rights reserved.
+﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
@@ -195,15 +195,18 @@ public sealed class FingerprintFactory : IFingerprintFactory
 
         // To help with debugging, dump the files which were included and excluded from the PathSet.
         // When probe/enumeration fingerprinting is active, include the type column so the log is diagnosable.
-        File.WriteAllLines(
-            Path.Combine(nodeContext.LogDirectory, "pathSetIncluded.txt"),
-            sortedEntries.Select(e => e.Type == ObservationType.FileContentRead
-                ? e.Path
-                : (e.EnumerationPattern is null
-                    ? $"[{e.Type}] {e.Path}"
-                    : $"[{e.Type} {e.EnumerationPattern}] {e.Path}")));
-        excluded.Sort(StringComparer.OrdinalIgnoreCase);
-        File.WriteAllLines(Path.Combine(nodeContext.LogDirectory, "pathSetExcluded.txt"), excluded);
+        if (_pluginSettings.LogLevel != LogLevel.None)
+        {
+            File.WriteAllLines(
+                Path.Combine(nodeContext.LogDirectory, "pathSetIncluded.txt"),
+                sortedEntries.Select(e => e.Type == ObservationType.FileContentRead
+                    ? e.Path
+                    : (e.EnumerationPattern is null
+                        ? $"[{e.Type}] {e.Path}"
+                        : $"[{e.Type} {e.EnumerationPattern}] {e.Path}")));
+            excluded.Sort(StringComparer.OrdinalIgnoreCase);
+            File.WriteAllLines(Path.Combine(nodeContext.LogDirectory, "pathSetExcluded.txt"), excluded);
+        }
 
         // If the PathSet is effectively empty, return null instead.
         if (sortedEntries.Count == 0)

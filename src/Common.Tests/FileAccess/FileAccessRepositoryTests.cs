@@ -169,6 +169,30 @@ public sealed class FileAccessRepositoryTests
         CollectionAssert.AreEqual(skipNodesWithLeftoverOutputs ? new[] { leftoverPath } : Array.Empty<string>(), fileAccesses.ExistingProbes.ToArray());
     }
 
+    [TestMethod]
+    [DataRow(LogLevel.Full, true)]
+    [DataRow(LogLevel.Minimal, false)]
+    [DataRow(LogLevel.None, false)]
+    public void FileAccessesAreLoggedOnlyAtFullLogLevel(LogLevel logLevel, bool expectLog)
+    {
+        string testDirectory = CreateTestDirectory();
+        PluginSettings settings = CreateSettings(
+            testDirectory,
+            new Dictionary<string, string>
+            {
+                [nameof(PluginSettings.LogLevel)] = logLevel.ToString(),
+            });
+
+        using FileAccessRepository repository = new(NullPluginLogger.Instance, settings);
+        NodeContext nodeContext = CreateNodeContext(testDirectory);
+
+        repository.AddFileAccess(nodeContext, CreateProcessAccess(Path.Combine(testDirectory, "tool.exe")));
+        repository.AddFileAccess(nodeContext, CreateFileAccess(Path.Combine(testDirectory, "input.txt")));
+        _ = repository.FinishProject(nodeContext);
+
+        Assert.AreEqual(expectLog, File.Exists(Path.Combine(nodeContext.LogDirectory, "fileAccesses.log")));
+    }
+
     private string CreateTestDirectory()
     {
         string testDirectory = Path.Combine(

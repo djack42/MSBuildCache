@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft. All rights reserved.
+﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
@@ -9,6 +9,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using BuildXL.Cache.ContentStore.Hashing;
 using DotNet.Globbing;
+using Microsoft.Build.Execution;
 using Microsoft.MSBuildCache.FileAccess;
 using Microsoft.MSBuildCache.Fingerprinting;
 using Microsoft.MSBuildCache.Hashing;
@@ -1217,6 +1218,35 @@ public class FingerprintFactoryTests
     /// tests must build on both TFMs. The work is trivially fast and happens during one-time test setup,
     /// so blocking the async caller is benign.
     /// </summary>
+    [TestMethod]
+    [DataRow(LogLevel.Full, true)]
+    [DataRow(LogLevel.Minimal, true)]
+    [DataRow(LogLevel.None, false)]
+    public void PathSetIsLoggedUnlessLogLevelIsNone(LogLevel logLevel, bool expectLog)
+    {
+        using TempDirectory repo = TempDirectory.Create("pathset-log");
+        using IContentHasher contentHasher = HashInfoLookup.Find(HashType.Murmur).CreateContentHasher();
+        PluginSettings settings = new TestPluginSettings { RepoRoot = repo.Path, LogLevel = logLevel };
+        FingerprintFactory factory = new(contentHasher, new NoopInputHasher(), settings, new PathNormalizer(repo.Path, Path.Combine(repo.Path, "nuget")));
+
+        string projectPath = Path.Combine(repo.Path, "p.proj");
+        WriteTextSync(projectPath, "<Project />");
+        NodeContext nodeContext = new(
+            Path.Combine(repo.Path, "logs"),
+            new ProjectInstance(projectPath),
+            Array.Empty<NodeContext>(),
+            "p.proj",
+            new Dictionary<string, string>(),
+            Array.Empty<string>(),
+            referenceAssemblyRelativePath: null,
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+
+        _ = factory.GetPathSet(nodeContext, Array.Empty<ObservedAccess>());
+
+        Assert.AreEqual(expectLog, File.Exists(Path.Combine(nodeContext.LogDirectory, "pathSetIncluded.txt")));
+        Assert.AreEqual(expectLog, File.Exists(Path.Combine(nodeContext.LogDirectory, "pathSetExcluded.txt")));
+    }
+
 #pragma warning disable CA1849 // Synchronous IO blocks async caller. net472 lacks an async equivalent; trivial test-setup IO.
     private static void WriteTextSync(string path, string text)
     {

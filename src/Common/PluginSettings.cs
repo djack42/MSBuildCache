@@ -66,6 +66,11 @@ public class PluginSettings
         init => _logDirectory = value;
     }
 
+    /// <summary>
+    /// Which files to write to <see cref="LogDirectory"/>.
+    /// </summary>
+    public LogLevel LogLevel { get; init; } = LogLevel.Full;
+
     public string CacheUniverse { get; init; } = "default";
 
     public int MaxConcurrentCacheContentOperations { get; init; } = 64;

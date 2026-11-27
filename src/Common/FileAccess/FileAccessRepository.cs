@@ -213,7 +213,7 @@ internal sealed class FileAccessRepository : IDisposable
 
         private readonly Action _onLateWrite;
 
-        private readonly StreamWriter _logFileStream;
+        private readonly StreamWriter? _logFileStream;
 
         private Dictionary<string, FileAccessInfo>? _fileTable = new(StringComparer.OrdinalIgnoreCase);
 
@@ -261,13 +261,17 @@ internal sealed class FileAccessRepository : IDisposable
                 _existingProbes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             }
 
-            string logFilePath = Path.Combine(nodeContext.LogDirectory, "fileAccesses.log");
-            _logFileStream = File.CreateText(logFilePath);
+            // The raw file accesses are the largest log, and only the full log level keeps them.
+            if (_pluginSettings.LogLevel == LogLevel.Full)
+            {
+                string logFilePath = Path.Combine(nodeContext.LogDirectory, "fileAccesses.log");
+                _logFileStream = File.CreateText(logFilePath);
+            }
         }
 
         public void Dispose()
         {
-            _logFileStream.Dispose();
+            _logFileStream?.Dispose();
         }
 
         public void AddFileAccess(FileAccessData fileAccessData)
@@ -354,34 +358,37 @@ internal sealed class FileAccessRepository : IDisposable
 
                 if (operation == ReportedFileOperation.Process)
                 {
-                    _logFileStream.WriteLine($"New process: PId {processId}, process name {path}, arguments {fileAccessData.ProcessArgs}");
+                    _logFileStream?.WriteLine($"New process: PId {processId}, process name {path}, arguments {fileAccessData.ProcessArgs}");
                     _processTable.TryAdd(processId, path);
                 }
 
                 // Note: This is a hot path, so writing fields one at a time to avoid the overhead of a string.Format with many arguments.
-                _logFileStream.Write(processId);
-                _logFileStream.Write(", ");
-                _logFileStream.Write(fileAccessData.Id);
-                _logFileStream.Write(", ");
-                _logFileStream.Write(fileAccessData.CorrelationId);
-                _logFileStream.Write(", ");
-                UInt32FlagsFormatter<DesiredAccess>.Write(_logFileStream, (uint)desiredAccess);
-                _logFileStream.Write(", ");
-                UInt32FlagsFormatter<FlagsAndAttributes>.Write(_logFileStream, (uint)flagsAndAttributes);
-                _logFileStream.Write(", ");
-                WriteRequestedAccess(_logFileStream, requestedAccess);
-                _logFileStream.Write(", ");
-                _logFileStream.Write(ReportedFileOperationNames[(int)operation]);
-                _logFileStream.Write(", ");
-                _logFileStream.Write(path);
-                _logFileStream.Write(", ");
-                _logFileStream.Write(error);
-                if (isAnAugmentedFileAccess)
+                if (_logFileStream is not null)
                 {
-                    _logFileStream.Write(" (Augmented)");
-                }
+                    _logFileStream.Write(processId);
+                    _logFileStream.Write(", ");
+                    _logFileStream.Write(fileAccessData.Id);
+                    _logFileStream.Write(", ");
+                    _logFileStream.Write(fileAccessData.CorrelationId);
+                    _logFileStream.Write(", ");
+                    UInt32FlagsFormatter<DesiredAccess>.Write(_logFileStream, (uint)desiredAccess);
+                    _logFileStream.Write(", ");
+                    UInt32FlagsFormatter<FlagsAndAttributes>.Write(_logFileStream, (uint)flagsAndAttributes);
+                    _logFileStream.Write(", ");
+                    WriteRequestedAccess(_logFileStream, requestedAccess);
+                    _logFileStream.Write(", ");
+                    _logFileStream.Write(ReportedFileOperationNames[(int)operation]);
+                    _logFileStream.Write(", ");
+                    _logFileStream.Write(path);
+                    _logFileStream.Write(", ");
+                    _logFileStream.Write(error);
+                    if (isAnAugmentedFileAccess)
+                    {
+                        _logFileStream.Write(" (Augmented)");
+                    }
 
-                _logFileStream.WriteLine();
+                    _logFileStream.WriteLine();
+                }
 
                 // Classify probes/enumerations BEFORE the generic `error != 0` short-circuit below — probes
                 // can have not-found errors (ERROR_FILE_NOT_FOUND for AbsentPathProbe) that must not be dropped.
@@ -487,7 +494,7 @@ internal sealed class FileAccessRepository : IDisposable
                     return;
                 }
 
-                _logFileStream.WriteLine(
+                _logFileStream?.WriteLine(
                     "Process exited. PId: {0}, Parent: {1}, Name: {2}, ExitCode: {3}, CreationTime: {4}, ExitTime: {5}",
                     processData.ProcessId,
                     processData.ParentProcessId,
@@ -507,7 +514,7 @@ internal sealed class FileAccessRepository : IDisposable
             lock (_stateLock)
             {
                 _isFinished = true;
-                _logFileStream.WriteLine("Project finished");
+                _logFileStream?.WriteLine("Project finished");
 
                 fileTable = _fileTable!;
                 deletedDirectories = _deletedDirectories!;
@@ -524,7 +531,7 @@ internal sealed class FileAccessRepository : IDisposable
                     _pluginSettings.AllowFileAccessAfterProjectFinishProcessPatterns.Count == 0 &&
                     _pluginSettings.AllowProcessCloseAfterProjectFinishProcessPatterns.Count == 0)
                 {
-                    _logFileStream.Dispose();
+                    _logFileStream?.Dispose();
                     _isLogClosed = true;
                 }
             }
