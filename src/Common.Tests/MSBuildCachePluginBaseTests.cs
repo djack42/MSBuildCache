@@ -318,6 +318,32 @@ public sealed class MSBuildCachePluginBaseTests
         Directory.Delete(cacheRoot, recursive: true);
     }
 
+    [TestMethod]
+    public async Task GetCacheResultSkipsCacheLookupWhenSkipCacheLookupIsSet()
+    {
+        await using TestPlugin plugin = new();
+#pragma warning disable CA2000 // Ownership is transferred to the plugin, which disposes it.
+        SetCacheClient(plugin, new FaultingCacheClient("lookup"));
+#pragma warning restore CA2000
+        SetProperty(plugin, "Settings", new PluginSettings { RepoRoot = RepoRoot, SkipCacheLookup = true });
+        SetProperty(plugin, "Initialized", true);
+        MethodInfo getCacheResultSingleMethod = typeof(MSBuildCachePluginBase<PluginSettings>).GetMethod(
+            "GetCacheResultSingleAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        // The cache client throws when queried, so a cache miss shows the lookup was skipped.
+        CacheResult result = await (Task<CacheResult>)getCacheResultSingleMethod.Invoke(
+            plugin,
+            [CreateNode("current.proj"), true, NullPluginLogger.Instance, CancellationToken.None])!;
+
+        Assert.AreEqual(CacheResultType.CacheMiss, result.ResultType);
+    }
+
+    private static void SetProperty(TestPlugin plugin, string propertyName, object value)
+        => typeof(MSBuildCachePluginBase<PluginSettings>)
+            .GetProperty(propertyName, BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(plugin, value);
+
     private static void SetCacheClient(TestPlugin plugin, ICacheClient cacheClient)
     {
         FieldInfo cacheClientField = typeof(MSBuildCachePluginBase<PluginSettings>).GetField(

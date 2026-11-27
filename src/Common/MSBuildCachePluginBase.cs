@@ -531,6 +531,13 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
 
         nodeContext.SetStartTime();
 
+        if (Settings is { SkipCacheLookup: true })
+        {
+            logger.LogMessage($"Skipping the cache lookup for {nodeContext.Id} because SkipCacheLookup is set.");
+            Interlocked.Increment(ref _cacheMissCount);
+            return CacheResult.IndicateNonCacheHit(CacheResultType.CacheMiss);
+        }
+
         (PathSet? pathSet, NodeBuildResult? nodeBuildResult) = await _cacheClient.GetNodeAsync(nodeContext, materializeOutputs, cancellationToken);
         if (nodeBuildResult is null)
         {
