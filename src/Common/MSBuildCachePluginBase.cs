@@ -71,6 +71,7 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
 
     private int _cacheHitCount;
     private long _cacheHitDurationMilliseconds;
+    private readonly ConcurrentQueue<CacheHitLogEntry> _cacheHitsToLog = new();
     private int _cacheMissCount;
 
     static MSBuildCachePluginBase() =>
@@ -367,6 +368,8 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
     {
         try
         {
+            await DumpCacheHitsLogAsync(logger);
+
             if (_cacheClient is not null)
             {
                 await _cacheClient.ShutdownAsync(cancellationToken);
@@ -499,7 +502,7 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
 
         CheckForDuplicateOutputs(logger, nodeBuildResult.Outputs, nodeContext);
 
-        await FinishNodeAsync(logger, nodeContext, pathSet, nodeBuildResult);
+        await FinishNodeAsync(logger, nodeContext, pathSet, nodeBuildResult, isCacheHit: true);
 
         Interlocked.Increment(ref _cacheHitCount);
         Interlocked.Add(ref _cacheHitDurationMilliseconds, (int)(nodeBuildResult.EndTimeUtc - nodeBuildResult.StartTimeUtc).TotalMilliseconds);
@@ -792,7 +795,7 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
             },
             cancellationToken);
 
-        await FinishNodeAsync(logger, nodeContext, pathSet, nodeBuildResult);
+        await FinishNodeAsync(logger, nodeContext, pathSet, nodeBuildResult, isCacheHit: false);
 
         // TODO dfederm: Allow add failures to be just warnings?
     }
@@ -801,12 +804,27 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
         PluginLoggerBase logger,
         NodeContext nodeContext,
         PathSet? pathSet,
-        NodeBuildResult nodeBuildResult)
+        NodeBuildResult nodeBuildResult,
+        bool isCacheHit)
     {
         nodeContext.SetBuildResult(nodeBuildResult);
 
         if (Settings?.LogLevel == LogLevel.None)
         {
+            return;
+        }
+
+        // A cache miss is diagnosed against the build which added the entry, itself a miss: at Minimal, a hit only
+        // records which entry it used, in hits.json, rather than writing the files of a miss.
+        if (isCacheHit && Settings?.LogLevel == LogLevel.Minimal)
+        {
+            Fingerprint? weakFingerprint = await FingerprintFactory!.GetWeakFingerprintAsync(nodeContext);
+            Fingerprint? strongFingerprint = await FingerprintFactory.GetStrongFingerprintAsync(pathSet);
+            _cacheHitsToLog.Enqueue(new CacheHitLogEntry(
+                nodeContext.Id,
+                nodeContext.ProjectFileRelativePath,
+                weakFingerprint?.Hash.ToHex(),
+                strongFingerprint?.Hash.ToHex()));
             return;
         }
 
@@ -859,6 +877,43 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
         // Check if the targets we expect is a subset of the targets we got. InitialTargets in particular may cause extra targets to be executed.
         // We will end up caching these extra results, but this is also intended as they do end up executing with the original request.
         return expectedTargets.IsSubsetOf(reportedTargets);
+    }
+
+    private readonly record struct CacheHitLogEntry(string Id, string ProjectFileRelativePath, string? WeakFingerprint, string? StrongFingerprint);
+
+    /// <summary>
+    /// At <see cref="LogLevel.Minimal"/>, writes hits.json: for each cache hit, the fingerprints of the entry it used.
+    /// </summary>
+    private async Task DumpCacheHitsLogAsync(PluginLoggerBase logger)
+    {
+        if (!Initialized || Settings?.LogLevel != LogLevel.Minimal)
+        {
+            return;
+        }
+
+        string filePath = Path.Combine(Settings.LogDirectory, "hits.json");
+        try
+        {
+            using FileStream fileStream = File.Create(filePath);
+            await using var jsonWriter = new Utf8JsonWriter(fileStream, SerializationHelper.WriterOptions);
+
+            jsonWriter.WriteStartArray();
+            foreach (CacheHitLogEntry hit in _cacheHitsToLog.OrderBy(hit => hit.ProjectFileRelativePath, StringComparer.OrdinalIgnoreCase).ThenBy(hit => hit.Id, StringComparer.Ordinal))
+            {
+                jsonWriter.WriteStartObject();
+                jsonWriter.WriteString("id", hit.Id);
+                jsonWriter.WriteString("projectFileRelativePath", hit.ProjectFileRelativePath);
+                jsonWriter.WriteString("weakFingerprint", hit.WeakFingerprint);
+                jsonWriter.WriteString("strongFingerprint", hit.StrongFingerprint);
+                jsonWriter.WriteEndObject();
+            }
+
+            jsonWriter.WriteEndArray();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning($"Non-fatal exception while writing {filePath}. {ex.GetType().Name}: {ex.Message}");
+        }
     }
 
     private async Task DumpNodeContextsAsync(PluginLoggerBase logger, Dictionary<NodeDescriptor, NodeContext> nodeContexts)
