@@ -54,7 +54,7 @@ These settings are common across all plugins, although different implementations
 | MSBuild Property Name | Setting Type | Default value | Description |
 | ------------- | ------------ | ------------- | ----------- |
 | `$(MSBuildCacheLogDirectory)` | `string` | "MSBuildCacheLogs" | Base directory to use for logging. If a relative path, it's assumed relative to the repo root. |
-| `$(MSBuildCacheLogLevel)` | `LogLevel` | Full | Which files to write to the log directory. `Full` writes every log, `Minimal` keeps only what explains a cache miss (fingerprints with one entry per dependency, path sets, observed inputs and outputs, build results and the cache client log) and drops the raw file accesses and parser information, and `None` writes no log files. |
+| `$(MSBuildCacheLogLevel)` | `LogLevel` | Full | Which files to write to the log directory. `Full` writes every log, `Minimal` keeps only what explains a cache miss (for each project built: fingerprints with one entry per dependency, path sets, observed inputs and outputs, build result; for each cache hit, the fingerprints of the entry used, in `hits.json`; and the cache client log) and drops the raw file accesses and parser information, and `None` writes no log files. |
 | `$(MSBuildCacheCacheUniverse)` | `string` | "default" | The cache universe is used to isolate the cache. This can be used to bust the cache, or to isolate some types of builds from other types. |
 | `$(MSBuildCacheMaxConcurrentCacheContentOperations)` | `int` | 64 | The maximum number of cache operations to perform concurrently |
 | `$(MSBuildCacheLocalCacheRootPath)` | `string` | "\MSBuildCache" (in repo's drive root) | Base directory to use for the local cache. |
