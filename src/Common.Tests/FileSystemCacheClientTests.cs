@@ -263,6 +263,7 @@ public class FileSystemCacheClientTests
             new FixedFingerprintFactory(hasher),
             hasher,
             _cacheRoot,
+            maxCacheSizeInBytes: long.MaxValue,
             _repoRoot,
             nugetPackageRoot: Path.Combine(_repoRoot, "packages"),
             getFileRealizationMode: _ => FileRealizationMode.Copy,

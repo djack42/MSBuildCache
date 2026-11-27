@@ -52,6 +52,7 @@ public sealed class MSBuildCacheLocalSharedPlugin : MSBuildCachePluginBase
             FingerprintFactory,
             ContentHasher,
             Settings.LocalCacheRootPath,
+            Settings.LocalCacheSizeInMegabytes * 1024L * 1024L,
             Settings.RepoRoot,
             NugetPackageRoot,
             GetFileRealizationMode,

@@ -37,6 +37,7 @@ namespace Microsoft.MSBuildCache.Caching;
 ///   It lists the selector, then the content hashes of the node (node build result first, then the outputs).
 ///   Written last, once all its content is in <c>cas\</c>. Its last write time is its last use.</description></item>
 ///   <item><description><c>tmp\</c>: files being written. Leftovers of crashed builds are deleted after a day.</description></item>
+///   <item><description><c>trim\</c>: state of <see cref="FileSystemCacheTrimmer"/>, which keeps the store under its maximum size at the end of builds.</description></item>
 /// </list>
 /// Concurrent writers of the same content or entry are idempotent: the first one wins, except that an entry referencing missing content is replaced.
 /// Any store error while looking up a node is a cache miss, and any store error while adding a node skips the add: the store never fails the build.
@@ -60,6 +61,7 @@ public sealed class FileSystemCacheClient : CacheClient
     private readonly string _contentDirectory;
     private readonly string _fingerprintDirectory;
     private readonly string _tempDirectory;
+    private readonly FileSystemCacheTrimmer _trimmer;
 
     // Content placed per destination path during this build. Several nodes can produce the same output (identical duplicate outputs)
     // and place it concurrently: place it once, and serialize placements to the same path.
@@ -70,6 +72,7 @@ public sealed class FileSystemCacheClient : CacheClient
         IFingerprintFactory fingerprintFactory,
         IContentHasher hasher,
         string cacheRootPath,
+        long maxCacheSizeInBytes,
         string repoRoot,
         string nugetPackageRoot,
         Func<string, FileRealizationMode> getFileRealizationMode,
@@ -106,10 +109,28 @@ public sealed class FileSystemCacheClient : CacheClient
         Directory.CreateDirectory(_fingerprintDirectory);
         Directory.CreateDirectory(_tempDirectory);
         DeleteStaleTempFiles(rootContext);
+        _trimmer = new FileSystemCacheTrimmer(
+            _contentDirectory,
+            _fingerprintDirectory,
+            Path.Combine(layoutDirectory, FileSystemCacheTrimmer.TrimDirectoryName),
+            maxCacheSizeInBytes,
+            FileSystemCacheTrimmer.DefaultCheckInterval,
+            FileSystemCacheTrimmer.DefaultDeletionDelay);
     }
 
     public override async ValueTask DisposeAsync()
     {
+        // Trim at the end of the build, once outputs are published and placed.
+        try
+        {
+            TrimResult result = _trimmer.Trim(DateTime.UtcNow);
+            Tracer.Info(RootContext, result.ToString());
+        }
+        catch (Exception ex) when (IsStoreException(ex))
+        {
+            Tracer.Warning(RootContext, $"Cache trim failed: {ex}");
+        }
+
         await base.DisposeAsync();
         PutOrPlaceFileGate.Dispose();
     }

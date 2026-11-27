@@ -142,7 +142,7 @@ This implementation uses the local file system for the cache. In particular, it 
 
 This implementation also uses the local file system for the cache, but as plain files without any lock or database, so several builds can use the same cache at the same time (for example builds in several clones or worktrees of a repo on one machine, or concurrent jobs on a build agent). The cache is stored in a `FileSystemCache.v1` folder under `$(MSBuildCacheLocalCacheRootPath)`.
 
-Files are cloned between the cache and the repo when the file system supports copy-on-write (ReFS, Dev Drive), and copied otherwise. Store errors make the affected node a cache miss rather than failing the build. Eviction (`$(MSBuildCacheLocalCacheSizeInMegabytes)`) is not implemented yet.
+Files are cloned between the cache and the repo when the file system supports copy-on-write (ReFS, Dev Drive), and copied otherwise. Store errors make the affected node a cache miss rather than failing the build. At the end of a build, when the content exceeds `$(MSBuildCacheLocalCacheSizeInMegabytes)`, the least recently used entries are deleted until the content they reference fits in 80% of it, and content no longer referenced is deleted by a later build, at least an hour after.
 
 ### Microsoft.MSBuildCache.AzureBlobStorage
 [![NuGet Version](https://img.shields.io/nuget/v/Microsoft.MSBuildCache.AzureBlobStorage.svg)](https://www.nuget.org/packages/Microsoft.MSBuildCache.AzureBlobStorage)
