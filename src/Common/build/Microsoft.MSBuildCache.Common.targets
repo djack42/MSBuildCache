@@ -14,6 +14,7 @@
     <MSBuildCacheGlobalPropertiesToIgnore>$(MSBuildCacheGlobalPropertiesToIgnore);MSBuildCacheIgnoredOutputPatterns</MSBuildCacheGlobalPropertiesToIgnore>
     <MSBuildCacheGlobalPropertiesToIgnore>$(MSBuildCacheGlobalPropertiesToIgnore);MSBuildCacheIdenticalDuplicateOutputPatterns</MSBuildCacheGlobalPropertiesToIgnore>
     <MSBuildCacheGlobalPropertiesToIgnore>$(MSBuildCacheGlobalPropertiesToIgnore);MSBuildCacheRemoteCacheIsReadOnly</MSBuildCacheGlobalPropertiesToIgnore>
+    <MSBuildCacheGlobalPropertiesToIgnore>$(MSBuildCacheGlobalPropertiesToIgnore);MSBuildCacheSkipCacheLookup</MSBuildCacheGlobalPropertiesToIgnore>
     <MSBuildCacheGlobalPropertiesToIgnore>$(MSBuildCacheGlobalPropertiesToIgnore);MSBuildCacheAsyncCachePublishing</MSBuildCacheGlobalPropertiesToIgnore>
     <MSBuildCacheGlobalPropertiesToIgnore>$(MSBuildCacheGlobalPropertiesToIgnore);MSBuildCacheAsyncCacheMaterialization</MSBuildCacheGlobalPropertiesToIgnore>
     <MSBuildCacheGlobalPropertiesToIgnore>$(MSBuildCacheGlobalPropertiesToIgnore);MSBuildCacheAllowFileAccessAfterProjectFinishProcessPatterns</MSBuildCacheGlobalPropertiesToIgnore>
@@ -40,6 +41,7 @@
       <IgnoredOutputPatterns>$(MSBuildCacheIgnoredOutputPatterns)</IgnoredOutputPatterns>
       <IdenticalDuplicateOutputPatterns>$(MSBuildCacheIdenticalDuplicateOutputPatterns)</IdenticalDuplicateOutputPatterns>
       <RemoteCacheIsReadOnly>$(MSBuildCacheRemoteCacheIsReadOnly)</RemoteCacheIsReadOnly>
+      <SkipCacheLookup>$(MSBuildCacheSkipCacheLookup)</SkipCacheLookup>
       <AsyncCachePublishing>$(MSBuildCacheAsyncCachePublishing)</AsyncCachePublishing>
       <AsyncCacheMaterialization>$(MSBuildCacheAsyncCacheMaterialization)</AsyncCacheMaterialization>
       <AllowFileAccessAfterProjectFinishProcessPatterns>$(MSBuildCacheAllowFileAccessAfterProjectFinishProcessPatterns)</AllowFileAccessAfterProjectFinishProcessPatterns>

@@ -225,6 +225,10 @@ public sealed class PluginSettingsTests
         => TestBoolSetting(nameof(PluginSettings.RemoteCacheIsReadOnly), pluginSettings => pluginSettings.RemoteCacheIsReadOnly);
 
     [TestMethod]
+    public void SkipCacheLookupSetting()
+        => TestBoolSetting(nameof(PluginSettings.SkipCacheLookup), pluginSettings => pluginSettings.SkipCacheLookup);
+
+    [TestMethod]
     public void AsyncCachePublishingSetting()
         => TestBoolSetting(nameof(PluginSettings.AsyncCachePublishing), pluginSettings => pluginSettings.AsyncCachePublishing);
 

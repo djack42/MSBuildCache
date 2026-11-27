@@ -91,6 +91,8 @@ public class PluginSettings
 
     public bool RemoteCacheIsReadOnly { get; init; }
 
+    public bool SkipCacheLookup { get; init; }
+
     public bool AsyncCachePublishing { get; init; } = true;
 
     public bool AsyncCacheMaterialization { get; init; } = true;
