@@ -134,6 +134,12 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
 
     protected abstract HashType HashType { get; }
 
+    /// <summary>
+    /// Whether the build goes on without the cache, with a warning, when <see cref="CreateCacheClientAsync"/> fails, rather than failing.
+    /// Plugins whose cache is an optimization the build can do without (e.g. a local cache) can return true.
+    /// </summary>
+    protected virtual bool BuildUncachedWhenCacheIsUnavailable => false;
+
     protected IContentHasher? ContentHasher { get; private set; }
 
     protected IInputHasher? InputHasher { get; private set; }
@@ -333,7 +339,16 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
         InputHasher = await inputHasherTask;
         FingerprintFactory = CreateFingerprintFactory();
         _fileAccessRepository = new FileAccessRepository(logger, Settings);
-        _cacheClient = await CreateCacheClientAsync(logger, cancellationToken);
+        try
+        {
+            _cacheClient = await CreateCacheClientAsync(logger, cancellationToken);
+        }
+        catch (Exception ex) when (BuildUncachedWhenCacheIsUnavailable && ex is not OperationCanceledException)
+        {
+            // Like when another build holds the cache: leave the plugin uninitialized, which builds every project without the cache.
+            logger.LogWarning($"The cache could not be opened, so this build will not receive any cache hits: {ex.Message}");
+            return;
+        }
 
         if (Settings.GetResultsForUnqueriedDependencies)
         {
