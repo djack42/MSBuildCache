@@ -2,12 +2,11 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using BuildXL.Cache.ContentStore.Hashing;
+using BuildXL.Cache.ContentStore.Interfaces.Logging;
 using BuildXL.Cache.ContentStore.Interfaces.Tracing;
-using BuildXL.Cache.ContentStore.Logging;
 using Microsoft.Build.Experimental.ProjectCache;
 using Microsoft.MSBuildCache.Caching;
 
@@ -41,9 +40,8 @@ public sealed class MSBuildCacheLocalSharedPlugin : MSBuildCachePluginBase
             logger.LogWarning($"{nameof(PluginSettings.AsyncCachePublishing)} is not supported by this plugin and is ignored: outputs are published synchronously.");
         }
 
-        FileLog fileLog = new(Path.Combine(Settings.LogDirectory, "CacheClient.log"));
 #pragma warning disable CA2000 // Dispose objects before losing scope. Expected to be disposed using Context.Logger.Dispose in the cache client implementation.
-        Logger cacheLogger = new(fileLog);
+        ILogger cacheLogger = CacheLoggerFactory.Create(Settings);
 #pragma warning restore CA2000 // Dispose objects before losing scope
         Context context = new(cacheLogger);
 
