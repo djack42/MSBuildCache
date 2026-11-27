@@ -48,7 +48,8 @@ public abstract class CacheClient : ICacheClient
     private readonly IFingerprintFactory _fingerprintFactory;
     private readonly bool _enableAsyncMaterialization;
     private readonly bool _touchOutputFiles;
-    private readonly ICache _localCache;
+    private readonly ICache? _localCache;
+    private readonly IContentSession? _localCacheSession;
     private readonly string _nugetPackageRoot;
     private readonly bool _canCloneInNugetCachePath;
     private readonly LocalCacheStateManager? _localCacheStateManager;
@@ -60,8 +61,8 @@ public abstract class CacheClient : ICacheClient
         string repoRoot,
         string nugetPackageRoot,
         Func<string, FileRealizationMode> getFileRealizationMode,
-        ICache localCache,
-        IContentSession localCas,
+        ICache? localCache,
+        IContentSession? localCas,
         int maxConcurrentCacheContentOperations,
         bool enableAsyncPublishing,
         bool enableAsyncMaterialization,
@@ -75,7 +76,7 @@ public abstract class CacheClient : ICacheClient
         RepoRoot = repoRoot;
         _nugetPackageRoot = nugetPackageRoot;
         _localCache = localCache;
-        LocalCacheSession = localCas;
+        _localCacheSession = localCas;
         EnableAsyncPublishing = enableAsyncPublishing;
         _enableAsyncMaterialization = enableAsyncMaterialization;
         _touchOutputFiles = touchOutputFiles;
@@ -87,6 +88,11 @@ public abstract class CacheClient : ICacheClient
         // access contention with ongoing build operations.
         if (EnableAsyncPublishing)
         {
+            if (localCas is null)
+            {
+                throw new ArgumentException("Async publishing requires a local cache.", nameof(localCas));
+            }
+
             _outputHasher = new OutputHasher((path, ct) => PutOrPlaceFileGate.GatedOperationAsync(async (_, _) =>
             {
                 var result = await LocalCacheSession.PutFileAsync(RootContext, _hasher.Info.HashType, new AbsolutePath(path), GetFileRealizationMode(path), ct);
@@ -116,7 +122,7 @@ public abstract class CacheClient : ICacheClient
 
     protected Selector EmptySelector { get; }
 
-    protected IContentSession LocalCacheSession { get; }
+    protected IContentSession LocalCacheSession => _localCacheSession ?? throw new InvalidOperationException("This cache client has no local cache.");
 
     protected bool EnableAsyncPublishing { get; }
 
@@ -173,8 +179,11 @@ public abstract class CacheClient : ICacheClient
     {
         GC.SuppressFinalize(this);
 
-        LocalCacheSession.Dispose();
-        await ShutdownCacheAsync(_localCache);
+        _localCacheSession?.Dispose();
+        if (_localCache is not null)
+        {
+            await ShutdownCacheAsync(_localCache);
+        }
 
         if (_outputHasher != null)
         {
