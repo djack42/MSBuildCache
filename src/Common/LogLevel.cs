@@ -14,8 +14,8 @@ public enum LogLevel
     Full,
 
     /// <summary>
-    /// Only the files needed to explain a cache miss: fingerprints, path sets, observed inputs and outputs,
-    /// node information, build results and the cache client log.
+    /// Only the files needed to explain a cache miss: fingerprints (one entry per dependency rather than per file of
+    /// its outputs), path sets, observed inputs and outputs, node information, build results and the cache client log.
     /// </summary>
     Minimal,
 

@@ -17,7 +17,10 @@ using NuGet.Versioning;
 
 namespace Microsoft.MSBuildCache.Fingerprinting;
 
-public readonly record struct FingerprintEntry(byte[]? Hash, string Description);
+/// <param name="Hash">The hash combined into the fingerprint.</param>
+/// <param name="Description">What the hash covers, for the logs.</param>
+/// <param name="DependencyId">For an output of a dependency, the id of that dependency, for the logs. Not part of the fingerprint.</param>
+public readonly record struct FingerprintEntry(byte[]? Hash, string Description, string? DependencyId = null);
 
 public record Fingerprint(byte[] Hash, IReadOnlyList<FingerprintEntry> Entries);
 
@@ -166,7 +169,7 @@ public sealed class FingerprintFactory : IFingerprintFactory
                     // Sort outputs for consistent hash ordering
                     foreach (KeyValuePair<string, ContentHash> dependencyOutput in dependency.BuildResult!.Outputs)
                     {
-                        entries.Add(new FingerprintEntry(dependencyOutput.Value.ToHashByteArray(), $"Dependency Output: {dependency.Id} - {dependencyOutput.Key}"));
+                        entries.Add(new FingerprintEntry(dependencyOutput.Value.ToHashByteArray(), $"Dependency Output: {dependency.Id} - {dependencyOutput.Key}", dependency.Id));
                     }
                 }
 
