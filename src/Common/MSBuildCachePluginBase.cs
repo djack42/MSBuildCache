@@ -140,6 +140,12 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
 
     protected abstract HashType HashType { get; }
 
+    /// <summary>
+    /// Whether the plugin requires exclusive access to <see cref="PluginSettings.LocalCacheRootPath"/> across builds.
+    /// Plugins whose cache supports concurrent builds (e.g. a shared cache service or a lock-free store) can return false.
+    /// </summary>
+    protected virtual bool RequiresExclusiveLocalCacheAccess => true;
+
     protected IContentHasher? ContentHasher { get; private set; }
 
     protected IInputHasher? InputHasher { get; private set; }
@@ -1121,6 +1127,11 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
 
         // Now that this instance owns the lock, copy it to an instance variable to facilitate proper release on dispose.
         _singlePluginInstanceMutex = SinglePluginInstanceLock;
+
+        if (!RequiresExclusiveLocalCacheAccess)
+        {
+            return true;
+        }
 
         // Acquire a system-wide lock. If this fails, a separate build may be running, which might be intentional by the user so this may not be a warning.
         // Note: Ensure this doesn't collide with the local cache's directory lock by using a unique file name.

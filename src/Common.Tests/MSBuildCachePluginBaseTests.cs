@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft. All rights reserved.
+﻿// Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
@@ -278,6 +278,46 @@ public sealed class MSBuildCachePluginBaseTests
         }
     }
 
+    [TestMethod]
+    [DoNotParallelize]
+    public async Task PluginNotRequiringExclusiveAccessIgnoresTheCacheDirectoryLock()
+    {
+        string cacheRoot = Path.Combine(Path.GetTempPath(), "MSBuildCacheTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(cacheRoot);
+
+        PluginSettings settings = new()
+        {
+            RepoRoot = cacheRoot,
+            LocalCacheRootPath = cacheRoot,
+        };
+
+#pragma warning disable CA2000 // Ownership is transferred to the plugin, disposed in the finally block.
+        TestPlugin plugin = new(requiresExclusiveLocalCacheAccess: false);
+#pragma warning restore CA2000
+        bool pluginAcquiredLocks = false;
+
+        // Another build holds the cache directory lock.
+        using (DirectoryLock otherBuildLock = new(Path.Combine(cacheRoot, "MSBuildCache.lock"), NullPluginLogger.Instance))
+        {
+            try
+            {
+                Assert.IsTrue(otherBuildLock.Acquire(), "The other build must acquire the directory lock for the test to be valid.");
+
+                pluginAcquiredLocks = TryAcquireLock(plugin, settings);
+                Assert.IsTrue(pluginAcquiredLocks, "A plugin not requiring exclusive access must not wait for the directory lock.");
+            }
+            finally
+            {
+                if (pluginAcquiredLocks)
+                {
+                    await plugin.DisposeAsync();
+                }
+            }
+        }
+
+        Directory.Delete(cacheRoot, recursive: true);
+    }
+
     private static void SetCacheClient(TestPlugin plugin, ICacheClient cacheClient)
     {
         FieldInfo cacheClientField = typeof(MSBuildCachePluginBase<PluginSettings>).GetField(
@@ -296,7 +336,12 @@ public sealed class MSBuildCachePluginBaseTests
 
     private sealed class TestPlugin : MSBuildCachePluginBase
     {
+        public TestPlugin(bool requiresExclusiveLocalCacheAccess = true)
+            => RequiresExclusiveLocalCacheAccess = requiresExclusiveLocalCacheAccess;
+
         protected override HashType HashType => HashType.Murmur;
+
+        protected override bool RequiresExclusiveLocalCacheAccess { get; }
 
         protected override Task<ICacheClient> CreateCacheClientAsync(PluginLoggerBase logger, CancellationToken cancellationToken)
             => throw new NotSupportedException();
