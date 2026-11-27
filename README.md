@@ -138,6 +138,12 @@ It is expected that this plugin is used within an Azure Pipeline. The `SYSTEM_AC
 
 This implementation uses the local file system for the cache. In particular, it uses [BuildXL](https://github.com/microsoft/BuildXL)'s `LocalCache`. This is recommended for locally testing and debugging caching for your repo. This implementation can also be useful if you have stateful build agents where the cache can be reused across builds.
 
+### Microsoft.MSBuildCache.LocalShared
+
+This implementation also uses the local file system for the cache, but as plain files without any lock or database, so several builds can use the same cache at the same time (for example builds in several clones or worktrees of a repo on one machine, or concurrent jobs on a build agent). The cache is stored in a `FileSystemCache.v1` folder under `$(MSBuildCacheLocalCacheRootPath)`.
+
+Files are cloned between the cache and the repo when the file system supports copy-on-write (ReFS, Dev Drive), and copied otherwise. Store errors make the affected node a cache miss rather than failing the build. Eviction (`$(MSBuildCacheLocalCacheSizeInMegabytes)`) is not implemented yet.
+
 ### Microsoft.MSBuildCache.AzureBlobStorage
 [![NuGet Version](https://img.shields.io/nuget/v/Microsoft.MSBuildCache.AzureBlobStorage.svg)](https://www.nuget.org/packages/Microsoft.MSBuildCache.AzureBlobStorage)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/Microsoft.MSBuildCache.AzureBlobStorage.svg)](https://www.nuget.org/packages/Microsoft.MSBuildCache.AzureBlobStorage)

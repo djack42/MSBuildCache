@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <MSBuildCacheAssembly Condition="'$(MSBuildRuntimeType)' != 'Core'">$(MSBuildThisFileDirectory)net472\Microsoft.MSBuildCache.LocalShared.dll</MSBuildCacheAssembly>
+    <MSBuildCacheAssembly Condition="'$(MSBuildRuntimeType)' == 'Core'">$(MSBuildThisFileDirectory)net9.0\Microsoft.MSBuildCache.LocalShared.dll</MSBuildCacheAssembly>
+
+    <!-- Outputs are published synchronously: async publishing needs the BuildXL local cache, which this plugin does not use. -->
+    <MSBuildCacheAsyncCachePublishing Condition="'$(MSBuildCacheAsyncCachePublishing)' == ''">false</MSBuildCacheAsyncCachePublishing>
+  </PropertyGroup>
+
+  <Import Project="Microsoft.MSBuildCache.Common.props" />
+</Project>
