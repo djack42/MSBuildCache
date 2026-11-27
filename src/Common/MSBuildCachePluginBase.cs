@@ -1105,9 +1105,14 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
             using FileStream fileStream = File.Create(filePath);
             await using var jsonWriter = new Utf8JsonWriter(fileStream, SerializationHelper.WriterOptions);
 
+            // Minimal writes one entry per dependency rather than one per file of its outputs, which are most of the log.
+            Func<IReadOnlyList<FingerprintEntry>, IReadOnlyList<FingerprintEntry>> logEntries = Settings!.LogLevel == LogLevel.Minimal
+                ? entries => FingerprintLogEntries.CollapseDependencyOutputs(entries, ContentHasher!)
+                : entries => entries;
+
             jsonWriter.WriteStartObject();
-            WriteFingerprintJson(jsonWriter, "weak", weakFingerprint);
-            WriteFingerprintJson(jsonWriter, "strong", strongFingerprint);
+            WriteFingerprintJson(jsonWriter, "weak", weakFingerprint, logEntries);
+            WriteFingerprintJson(jsonWriter, "strong", strongFingerprint, logEntries);
             jsonWriter.WriteEndObject();
         }
         catch (Exception ex)
@@ -1115,7 +1120,11 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
             logger.LogWarning($"Non-fatal exception while writing {filePath}. {ex.GetType().Name}: {ex.Message}");
         }
 
-        static void WriteFingerprintJson(Utf8JsonWriter jsonWriter, string propertyName, Fingerprint? fingerprint)
+        static void WriteFingerprintJson(
+            Utf8JsonWriter jsonWriter,
+            string propertyName,
+            Fingerprint? fingerprint,
+            Func<IReadOnlyList<FingerprintEntry>, IReadOnlyList<FingerprintEntry>> logEntries)
         {
             jsonWriter.WritePropertyName(propertyName);
 
@@ -1132,7 +1141,7 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
             jsonWriter.WritePropertyName("entries");
             jsonWriter.WriteStartArray();
 
-            foreach (FingerprintEntry entry in fingerprint.Entries)
+            foreach (FingerprintEntry entry in logEntries(fingerprint.Entries))
             {
                 jsonWriter.WriteStartObject();
                 jsonWriter.WriteString("hash", entry.Hash.ToHex());
