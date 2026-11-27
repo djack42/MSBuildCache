@@ -158,6 +158,19 @@ public class FileSystemCacheClientTests
     }
 
     [TestMethod]
+    public async Task OutputThatCannotBePlacedIsAMiss()
+    {
+        NodeBuildResult nodeBuildResult = WriteOutputs(OutputRelativePath);
+        await AddNodeAsync(nodeBuildResult);
+        DeleteOutputs();
+
+        // A directory where the output goes: the output cannot be placed.
+        Directory.CreateDirectory(Path.Combine(_repoRoot, OutputRelativePath));
+
+        Assert.IsNull(await GetNodeAsync());
+    }
+
+    [TestMethod]
     public async Task ConcurrentAddsOfTheSameNodeSucceedAndLeaveNoTempFiles()
     {
         NodeBuildResult nodeBuildResult = WriteOutputs(OutputRelativePath);

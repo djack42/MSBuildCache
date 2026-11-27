@@ -568,7 +568,17 @@ public abstract class CacheClient : ICacheClient
             }
             else
             {
-                await PlaceFilesAsync(cancellationToken);
+                try
+                {
+                    await PlaceFilesAsync(cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // The content may have been evicted, or a destination may be locked: build the project instead of failing the build.
+                    // Outputs placed so far are overwritten by the build.
+                    Tracer.Warning(context, $"Failed to place the outputs of {cacheStrongFingerprint}, treating it as a cache miss: {ex}");
+                    return (null, null);
+                }
             }
         }
 
