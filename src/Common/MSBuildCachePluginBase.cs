@@ -244,12 +244,16 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
 
         WarnOnCowWithDifferingVolumes(logger);
 
+        // Delete the previous build's logs even when not logging, so they are not mistaken for this build's.
         if (Directory.Exists(Settings.LogDirectory))
         {
             Directory.Delete(Settings.LogDirectory, recursive: true);
         }
 
-        Directory.CreateDirectory(Settings.LogDirectory);
+        if (Settings.LogLevel != LogLevel.None)
+        {
+            Directory.CreateDirectory(Settings.LogDirectory);
+        }
 
         _ignoredOutputPatterns = Settings.IgnoredOutputPatterns;
         _identicalDuplicateOutputPatterns = Settings.IdenticalDuplicateOutputPatterns;
@@ -307,7 +311,11 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
                 parserInfo.ReferenceAssemblyRelativePath,
                 targetNames);
 
-            dumpParserInfoTasks.Add(Task.Run(() => DumpParserInfoAsync(logger, nodeContext, parserInfo), cancellationToken));
+            if (Settings.LogLevel == LogLevel.Full)
+            {
+                dumpParserInfoTasks.Add(Task.Run(() => DumpParserInfoAsync(logger, nodeContext, parserInfo), cancellationToken));
+            }
+
             _nodeContexts.Add(nodeDescriptor, nodeContext);
             nodeContextsByNode.Add(node, nodeContext);
         }
@@ -628,7 +636,7 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
         List<Task<(byte[]?, string)>> packageFileHashingTasks = new();
         static async Task<(byte[]?, string)> WrapHashingTask(Task<byte[]?> hashTask, string packageRootRelativeFilePath) => (await hashTask, packageRootRelativeFilePath);
 
-        using var observedInputsWriter = new StreamWriter(Path.Combine(nodeContext.LogDirectory, "observedInputs.txt"));
+        using TextWriter observedInputsWriter = CreateLogWriter(nodeContext, "observedInputs.txt");
         foreach (ObservedAccess observation in fileAccesses.Observations)
         {
             if (observation.Type != ObservationType.FileContentRead)
@@ -659,7 +667,11 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
             }
 
             string normalizedFilePath = _pathNormalizer.Normalize(absolutePath);
+#if NET11_0_OR_GREATER
+            await observedInputsWriter.WriteLineAsync(normalizedFilePath, cancellationToken);
+#else
             await observedInputsWriter.WriteLineAsync(normalizedFilePath);
+#endif
 
             string? relativeFilePath = absolutePath.MakePathRelativeTo(_repoRoot);
             if (relativeFilePath != null && _outputProducer.TryGetValue(relativeFilePath, out NodeContext? producerContext))
@@ -689,7 +701,7 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
         }
 
         Dictionary<string, string> outputPathToRelativePath = new(StringComparer.OrdinalIgnoreCase);
-        using var observedOutputsWriter = new StreamWriter(Path.Combine(nodeContext.LogDirectory, "observedOutputs.txt"));
+        using TextWriter observedOutputsWriter = CreateLogWriter(nodeContext, "observedOutputs.txt");
         foreach (string output in fileAccesses.Outputs)
         {
             if (File.Exists(output))
@@ -720,7 +732,11 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
                 if (relativeFilePath != null)
                 {
                     outputPathToRelativePath.Add(output, relativeFilePath);
+#if NET11_0_OR_GREATER
+                    await observedOutputsWriter.WriteLineAsync(relativeFilePath, cancellationToken);
+#else
                     await observedOutputsWriter.WriteLineAsync(relativeFilePath);
+#endif
                 }
                 else
                 {
@@ -789,10 +805,20 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
     {
         nodeContext.SetBuildResult(nodeBuildResult);
 
+        if (Settings?.LogLevel == LogLevel.None)
+        {
+            return;
+        }
+
         await Task.WhenAll(
             DumpFingerprintLogAsync(logger, nodeContext, pathSet),
             DumpBuildResultLogAsync(logger, nodeContext, nodeBuildResult));
     }
+
+    private TextWriter CreateLogWriter(NodeContext nodeContext, string fileName)
+        => Settings?.LogLevel == LogLevel.None
+            ? TextWriter.Null
+            : new StreamWriter(Path.Combine(nodeContext.LogDirectory, fileName));
 
     private NodeContext? GetNodeContext(FileAccessContext fileAccessContext)
     {
@@ -840,6 +866,11 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
         if (_nodeContexts is null)
         {
             throw new InvalidOperationException($"{nameof(_nodeContexts)} was unexpectedly null");
+        }
+
+        if (Settings?.LogLevel == LogLevel.None)
+        {
+            return;
         }
 
         Task[] tasks = new Task[nodeContexts.Count];
@@ -948,7 +979,8 @@ public abstract class MSBuildCachePluginBase<TPluginSettings> : ProjectCachePlug
         NodeContext nodeContext,
         PathSet? pathSet)
     {
-        if (!Initialized)
+        // The fingerprints are recomputed only for this log, so skip that work too when not logging.
+        if (!Initialized || Settings?.LogLevel == LogLevel.None)
         {
             return;
         }

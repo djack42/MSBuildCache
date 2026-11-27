@@ -76,6 +76,13 @@ public sealed class PluginSettingsTests
     }
 
     [TestMethod]
+    public void LogLevelSetting()
+        => TestBasicSetting(
+            nameof(PluginSettings.LogLevel),
+            pluginSettings => pluginSettings.LogLevel,
+            new[] { LogLevel.Full, LogLevel.Minimal, LogLevel.None });
+
+    [TestMethod]
     public void CacheUniverseSetting()
         => TestBasicSetting(
             nameof(PluginSettings.CacheUniverse),

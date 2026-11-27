@@ -6,6 +6,7 @@
   <PropertyGroup Condition="'$(MSBuildCacheEnabled)' != 'false'">
     <MSBuildCacheGlobalPropertiesToIgnore>$(MSBuildCacheGlobalPropertiesToIgnore);MSBuildCacheEnabled</MSBuildCacheGlobalPropertiesToIgnore>
     <MSBuildCacheGlobalPropertiesToIgnore>$(MSBuildCacheGlobalPropertiesToIgnore);MSBuildCacheLogDirectory</MSBuildCacheGlobalPropertiesToIgnore>
+    <MSBuildCacheGlobalPropertiesToIgnore>$(MSBuildCacheGlobalPropertiesToIgnore);MSBuildCacheLogLevel</MSBuildCacheGlobalPropertiesToIgnore>
     <MSBuildCacheGlobalPropertiesToIgnore>$(MSBuildCacheGlobalPropertiesToIgnore);MSBuildCacheCacheUniverse</MSBuildCacheGlobalPropertiesToIgnore>
     <MSBuildCacheGlobalPropertiesToIgnore>$(MSBuildCacheGlobalPropertiesToIgnore);MSBuildCacheMaxConcurrentCacheContentOperations</MSBuildCacheGlobalPropertiesToIgnore>
     <MSBuildCacheGlobalPropertiesToIgnore>$(MSBuildCacheGlobalPropertiesToIgnore);MSBuildCacheLocalCacheRootPath</MSBuildCacheGlobalPropertiesToIgnore>
@@ -32,6 +33,7 @@
   <ItemGroup Condition="'$(MSBuildCacheEnabled)' != 'false'">
     <ProjectCachePlugin Include="$(MSBuildCacheAssembly)">
       <LogDirectory>$(MSBuildCacheLogDirectory)</LogDirectory>
+      <LogLevel>$(MSBuildCacheLogLevel)</LogLevel>
       <CacheUniverse>$(MSBuildCacheCacheUniverse)</CacheUniverse>
       <MaxConcurrentCacheContentOperations>$(MSBuildCacheMaxConcurrentCacheContentOperations)</MaxConcurrentCacheContentOperations>
       <LocalCacheRootPath>$(MSBuildCacheLocalCacheRootPath)</LocalCacheRootPath>

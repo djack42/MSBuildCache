@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,10 +14,10 @@ using BuildXL.Cache.ContentStore.Distributed.Blob;
 using BuildXL.Cache.ContentStore.Distributed.NuCache;
 using BuildXL.Cache.ContentStore.Hashing;
 using BuildXL.Cache.ContentStore.Interfaces.Auth;
+using BuildXL.Cache.ContentStore.Interfaces.Logging;
 using BuildXL.Cache.ContentStore.Interfaces.Results;
 using BuildXL.Cache.ContentStore.Interfaces.Stores;
 using BuildXL.Cache.ContentStore.Interfaces.Tracing;
-using BuildXL.Cache.ContentStore.Logging;
 using BuildXL.Cache.ContentStore.Tracing.Internal;
 using BuildXL.Cache.MemoizationStore.Distributed.Stores;
 using BuildXL.Cache.MemoizationStore.Interfaces.Caches;
@@ -68,9 +67,8 @@ public sealed class MSBuildCacheAzureBlobStoragePlugin : MSBuildCachePluginBase<
             throw new InvalidOperationException();
         }
 
-        FileLog fileLog = new(Path.Combine(Settings.LogDirectory, "CacheClient.log"));
 #pragma warning disable CA2000 // Dispose objects before losing scope. Expected to be disposed using Context.Logger.Dispose in the cache client implementation.
-        Logger cacheLogger = new(fileLog);
+        ILogger cacheLogger = CacheLoggerFactory.Create(Settings);
 #pragma warning restore CA2000 // Dispose objects before losing scope
         Context context = new(cacheLogger);
 
