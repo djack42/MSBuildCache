@@ -1,6 +1,37 @@
 # Microsoft.MSBuildCache
 [![Build Status](https://dev.azure.com/msbuildcache/public/_apis/build/status%2FMicrosoft.MSBuildCache?repoName=microsoft%2FMSBuildCache&branchName=main)](https://dev.azure.com/msbuildcache/public/_build/latest?definitionId=1&repoName=microsoft%2FMSBuildCache&branchName=main)
 
+> [!NOTE]
+> **About this fork.** The `local-shared` branch is upstream `main` plus the changes proposed in microsoft/MSBuildCache#191: the open pull requests, the changes in Common they rely on, and a `Microsoft.MSBuildCache.LocalShared` plugin, a local cache that concurrent builds on one machine can share. It's the code we've run daily since November 2026, with concurrent CI jobs and several worktrees per developer machine sharing one cache. Each change has its own upstream issue or pull request, listed in microsoft/MSBuildCache#191, and this branch is rebased when they merge. Nothing here is published to nuget.org: build the packages yourself.
+>
+> **Try it**
+>
+> 1. Build the packages, with Visual Studio 2026 or the .NET SDK listed in `global.json`:
+>    ```
+>    git clone -b local-shared https://github.com/djack42/MSBuildCache.git
+>    cd MSBuildCache
+>    dotnet build MSBuildCache.sln -c Release
+>    ```
+>    The packages are in `artifacts\Release\packages`. Their version is in the file names, e.g. `Microsoft.MSBuildCache.LocalShared.0.1.<n>-preview-g<commit>.nupkg`.
+> 2. In the repository to build, add that folder as a package source in `nuget.config`, and map the MSBuildCache packages to it:
+>    ```xml
+>    <configuration>
+>      <packageSources>
+>        <add key="MSBuildCacheLocal" value="C:\src\MSBuildCache\artifacts\Release\packages" />
+>      </packageSources>
+>      <packageSourceMapping>
+>        <packageSource key="nuget.org">
+>          <package pattern="*" />
+>        </packageSource>
+>        <packageSource key="MSBuildCacheLocal">
+>          <package pattern="Microsoft.MSBuildCache.*" />
+>        </packageSource>
+>      </packageSourceMapping>
+>    </configuration>
+>    ```
+> 3. Reference the plugin as in [Usage](#usage) below, with `MSBuildCachePackageName` set to `Microsoft.MSBuildCache.LocalShared` and `MSBuildCachePackageVersion` set to the exact version of the packages you built. Then build with `msbuild -graph -reportfileaccesses`, and point `MSBuildCacheLocalCacheRootPath` at a folder the builds share, on ReFS or a Dev Drive if you can, so files are cloned rather than copied.
+
+
 This project provides plugin implementations for the experimental [MSBuild Project Cache](https://github.com/dotnet/msbuild/blob/main/documentation/specs/project-cache.md), which enables project-level caching within MSBuild.
 
 ## Usage
